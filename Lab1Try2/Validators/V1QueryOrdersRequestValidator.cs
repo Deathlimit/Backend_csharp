@@ -8,6 +8,9 @@ namespace Lab1Try2.Validators
     {
         public V1QueryOrdersRequestValidator()
         {
+
+            RuleFor(x => x).Must(x => (x.Ids?.Length>0) ||(x.CustomerIds?.Length>0)).WithMessage("CustomerId or Ids must be in querry");
+            
             // Валидация для Page
             RuleFor(x => x.Page)
                 .GreaterThanOrEqualTo(0)
@@ -54,6 +57,7 @@ namespace Lab1Try2.Validators
                     .GreaterThanOrEqualTo(0)
                     .WithMessage("Page must be specified when PageSize is greater than 0");
             });
+
         }
     }
 }
