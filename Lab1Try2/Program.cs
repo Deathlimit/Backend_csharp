@@ -2,8 +2,10 @@
 using Dapper;
 using FluentValidation;
 using Lab1Try2.BBL.Services;
+using Lab1Try2.Config;
 using Lab1Try2.DAL.Interfaces;
 using Lab1Try2.DAL.Repositories;
+using Lab1Try2.Services;
 using Lab1Try2.Validators;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -20,10 +22,21 @@ builder.Services.AddScoped<OrderService>();
 builder.Services.AddValidatorsFromAssemblyContaining(typeof(Program));
 builder.Services.AddScoped<IValidatorFactory, ValidatorFactory>();
 
+builder.Services.AddScoped<IAuditLogOrderRepository, AuditLogOrderRepository>();
+builder.Services.AddScoped<AuditLogOrderService>();
+builder.Services.AddScoped<V1AuditLogOrderRequestValidator>();
+
 // зависимость, которая автоматически подхватывает все контроллеры в проекте
 builder.Services.AddControllers();
 // добавляем swagger
 builder.Services.AddSwaggerGen();
+
+builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection(nameof(RabbitMqSettings)));
+
+builder.Services.Configure<RabbitMqSettings>(
+    builder.Configuration.GetSection("RabbitMqSettings"));
+
+builder.Services.AddScoped<RabbitMqService>();
 
 // собираем билдер в приложение
 var app = builder.Build();

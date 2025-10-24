@@ -1,18 +1,41 @@
 ﻿using Lab1Try2.BBL.Models;
 using Lab1Try2.DAL.Interfaces;
 using Lab1Try2.DAL.Models;
+using Microsoft.Extensions.Options;
+using Lab1Try2.Config;
+using Lab1Try2.Services; 
 
 namespace Lab1Try2.BBL.Services
 {
-    public class OrderService(UnitOfWork unitOfWork, IOrderRepository orderRepository, IOrderItemRepository orderItemRepository)
+    public class OrderService
     {
+        private readonly UnitOfWork _unitOfWork;
+        private readonly IOrderRepository _orderRepository;
+        private readonly IOrderItemRepository _orderItemRepository;
+        private readonly RabbitMqService _rabbitMqService;
+        private readonly RabbitMqSettings _rabbitMqSettings;
+
+        public OrderService(
+            UnitOfWork unitOfWork,
+            IOrderRepository orderRepository,
+            IOrderItemRepository orderItemRepository,
+            RabbitMqService rabbitMqService, 
+            IOptions<RabbitMqSettings> rabbitMqSettings) 
+        {
+            _unitOfWork = unitOfWork;
+            _orderRepository = orderRepository;
+            _orderItemRepository = orderItemRepository;
+            _rabbitMqService = rabbitMqService;
+            _rabbitMqSettings = rabbitMqSettings.Value;
+        }
+
         /// <summary>
         /// Метод создания заказов
         /// </summary>
         public async Task<OrderUnit[]> BatchInsert(OrderUnit[] orderUnits, CancellationToken token)
         {
             var now = DateTimeOffset.UtcNow;
-            await using var transaction = await unitOfWork.BeginTransactionAsync(token);
+            await using var transaction = await _unitOfWork.BeginTransactionAsync(token);
 
             try
             {
@@ -29,7 +52,7 @@ namespace Lab1Try2.BBL.Services
                     UpdatedAt = now
                 }).ToArray();
 
-                var savedOrders = await orderRepository.BulkInsert(ordersDal, token);
+                var savedOrders = await _orderRepository.BulkInsert(ordersDal, token);
 
                 // 2. Подготавливаем и сохраняем позиции заказов пакетно
                 var allOrderItems = new List<V1OrderItemDal>();
@@ -40,7 +63,7 @@ namespace Lab1Try2.BBL.Services
                     {
                         var orderItems = orderUnits[i].OrderItems.Select(item => new V1OrderItemDal
                         {
-                            OrderId = savedOrders[i].Id, // Связываем с сохраненным заказом
+                            OrderId = savedOrders[i].Id,
                             ProductId = item.ProductId,
                             Quantity = item.Quantity,
                             ProductTitle = item.ProductTitle,
@@ -56,7 +79,7 @@ namespace Lab1Try2.BBL.Services
                 }
 
                 var savedOrderItems = allOrderItems.Count > 0
-                    ? await orderItemRepository.BulkInsert(allOrderItems.ToArray(), token)
+                    ? await _orderItemRepository.BulkInsert(allOrderItems.ToArray(), token)
                     : [];
 
                 // 3. Группируем позиции по OrderId для удобства
@@ -95,6 +118,33 @@ namespace Lab1Try2.BBL.Services
                 }
 
                 await transaction.CommitAsync(token);
+
+                // 5. Собираем массив OmsOrderCreatedMessage для отправки в RabbitMQ
+                var messages = resultOrders.Select(order => new OmsOrderCreatedMessage
+                {
+                    Id = order.Id,
+                    CustomerId = order.CustomerId,
+                    DeliveryAddress = order.DeliveryAddress,
+                    TotalPriceCents = order.TotalPriceCents,
+                    TotalPriceCurrency = order.TotalPriceCurrency,
+                    CreatedAt = order.CreatedAt,
+                    OrderItems = order.OrderItems.Select(item => new OmsOrderItemMessage
+                    {
+                        Id = item.Id,
+                        OrderId = item.OrderId,
+                        ProductId = item.ProductId,
+                        Quantity = item.Quantity,
+                        ProductTitle = item.ProductTitle,
+                        ProductUrl = item.ProductUrl,
+                        PriceCents = item.PriceCents,
+                        PriceCurrency = item.PriceCurrency,
+                        CreatedAt = item.CreatedAt
+                    }).ToArray()
+                }).ToArray();
+
+                // 6. Отправляем сообщения в RabbitMQ
+                await _rabbitMqService.Publish(messages, _rabbitMqSettings.OrderCreatedQueue, token);
+
                 return resultOrders.ToArray();
             }
             catch (Exception e)
@@ -109,7 +159,7 @@ namespace Lab1Try2.BBL.Services
         /// </summary>
         public async Task<OrderUnit[]> GetOrders(QueryOrderItemsModel model, CancellationToken token)
         {
-            var orders = await orderRepository.Query(new QueryOrdersDalModel
+            var orders = await _orderRepository.Query(new QueryOrdersDalModel
             {
                 Ids = model.Ids,
                 CustomerIds = model.CustomerIds,
@@ -125,7 +175,7 @@ namespace Lab1Try2.BBL.Services
             ILookup<long, V1OrderItemDal> orderItemLookup = null;
             if (model.IncludeOrderItems)
             {
-                var orderItems = await orderItemRepository.Query(new QueryOrderItemsDalModel
+                var orderItems = await _orderItemRepository.Query(new QueryOrderItemsDalModel
                 {
                     OrderIds = orders.Select(x => x.Id).ToArray(),
                 }, token);
