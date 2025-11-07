@@ -2,11 +2,13 @@
 using Dapper;
 using FluentValidation;
 using Lab1Try2.BBL.Services;
+using Lab1Try2.Clients;
 using Lab1Try2.Config;
 using Lab1Try2.DAL.Interfaces;
 using Lab1Try2.DAL.Repositories;
 using Lab1Try2.Services;
 using Lab1Try2.Validators;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
