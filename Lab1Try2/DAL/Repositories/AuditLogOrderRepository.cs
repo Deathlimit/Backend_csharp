@@ -24,7 +24,7 @@ namespace Lab1Try2.DAL.Repositories
         (@OrderId, @OrderItemId, @CustomerId, @OrderStatus, @CreatedAt, @UpdatedAt)
         RETURNING *";
 
-            // Вариант 1: Выполняем вставку для каждого элемента отдельно
+            // Вариант 1: Выполняем вставку для каждого элемента отдельно ПОМЕНЯТЬ НА БАЛК
             var results = new List<V1AuditLogOrderDal>();
 
             foreach (var log in auditLogs)

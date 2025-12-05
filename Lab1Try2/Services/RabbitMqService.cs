@@ -1,4 +1,5 @@
-﻿using Lab1Try2.Config;
+﻿using Common;
+using Lab1Try2.Config;
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
 using System.Text;
@@ -30,7 +31,8 @@ namespace Lab1Try2.Services
 
             foreach (var message in enumerable)
             {
-                var messageStr = JsonSerializer.Serialize(message, jsonOptions);
+                //var messageStr = JsonSerializer.Serialize(message, jsonOptions);
+                var messageStr = message.ToJson();
                 var body = Encoding.UTF8.GetBytes(messageStr);
                 await channel.BasicPublishAsync(
                     exchange: string.Empty,
