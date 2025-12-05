@@ -18,21 +18,29 @@ namespace Lab1Try2.DAL.Repositories
             var connection = await _unitOfWork.GetConnection(token);
 
             const string sql = @"
-        INSERT INTO audit_log_order 
-        (order_id, order_item_id, customer_id, order_status, created_at, updated_at)
-        VALUES 
-        (@OrderId, @OrderItemId, @CustomerId, @OrderStatus, @CreatedAt, @UpdatedAt)
-        RETURNING *";
+                INSERT INTO audit_log_order 
+                (order_id, order_item_id, customer_id, order_status, created_at, updated_at)
+                SELECT 
+                    order_id,
+                    order_item_id,
+                    customer_id,
+                    order_status,
+                    created_at,
+                    updated_at
+                FROM unnest(@AuditLogs)
+                RETURNING 
+                    id,
+                    order_id,
+                    order_item_id,
+                    customer_id,
+                    order_status,
+                    created_at,
+                    updated_at;
+            ";
 
-            // Вариант 1: Выполняем вставку для каждого элемента отдельно ПОМЕНЯТЬ НА БАЛК
-            var results = new List<V1AuditLogOrderDal>();
-
-            foreach (var log in auditLogs)
-            {
-                var result = await connection.QuerySingleAsync<V1AuditLogOrderDal>(
-                    new CommandDefinition(sql, log, cancellationToken: token));
-                results.Add(result);
-            }
+            // Используем bulk вставку через unnest для массива записей
+            var results = await connection.QueryAsync<V1AuditLogOrderDal>(
+                new CommandDefinition(sql, new { AuditLogs = auditLogs }, cancellationToken: token));
 
             return results.ToArray();
         }

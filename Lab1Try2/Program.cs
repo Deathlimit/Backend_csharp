@@ -41,10 +41,10 @@ builder.Services.Configure<RabbitMqSettings>(
 builder.Services.AddScoped<RabbitMqService>();
 
 
-builder.Services.AddControllers().AddJsonOptions(options =>
-{
-    options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
-});
+//builder.Services.AddControllers().AddJsonOptions(options =>
+//{
+//   options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
+//});
 
 
 // собираем билдер в приложение
