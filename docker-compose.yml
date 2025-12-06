@@ -1,6 +1,7 @@
-services:
+﻿services:
   postgres:
     image: postgres
+    container_name: postgres
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=123
@@ -9,28 +10,103 @@ services:
       - POSTGRES_INITDB_ARGS=--auth=md5
     volumes:
       - pgdata:/var/lib/postgresql/data/
-      - ./initdb.d:/docker-entrypoint-initdb.d
+      - ./postgresql.conf:/etc/postgresql/postgresql.conf
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
   
   pgbouncer:
     image: edoburu/pgbouncer:latest
+    container_name: pgbouncer
     environment:
+      # CRITICAL: Use DB_* variables, not POSTGRESQL_*
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=postgres
       - DB_PASSWORD=123
       - ADMIN_USERS=postgres,admin
+      - POOL_MODE=transaction
+      - MAX_CLIENT_CONN=10000
+      - DEFAULT_POOL_SIZE=16
     ports:
       - "15432:5432"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
   
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
     container_name: rabbitmq
     ports:
-        - "5672:5672"
-        - "15672:15672"
+      - "5672:5672"
+      - "15672:15672"
     volumes:
-        - rabbitmq_data:/var/lib/rabbitmq
+      - rabbitmq_data:/var/lib/rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  lab1try2-service:
+    build:
+      context: .
+      dockerfile: Lab1Try2/Dockerfile
+    container_name: lab1try2-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      # Основное приложение использует pgbouncer
+      - DbSettings__ConnectionString=Host=pgbouncer;Port=5432;Database=postgres;Username=postgres;Password=123;Pooling=true;LoadTableComposites=true;No Reset On Close=true;
+      # Миграции — напрямую к postgres (без pgbouncer)
+      - DbSettings__MigrationConnectionString=Host=postgres;Port=5432;Database=postgres;Username=postgres;Password=123
+      - MIGRATION_CONNECTION=Host=postgres;Port=5432;Database=postgres;Username=postgres;Password=123
+      - RabbitMQ__HostName=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__UserName=guest
+      - RabbitMQ__Password=guest
+      - RabbitMQ__OrderCreatedQueue=order.created.queue
+    ports:
+      - "8080:8080"  # FIXED: Map to port 8080 inside container
+    depends_on:
+      pgbouncer:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  
+  consumer:
+    build:
+      context: .
+      dockerfile: Consumer/Dockerfile
+    container_name: consumer
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - RabbitMQ__HostName=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__UserName=guest
+      - RabbitMQ__Password=guest
+      - RabbitMQ__OrderCreatedQueue=order.created.queue
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      lab1try2-service:
+        condition: service_started
+    restart: unless-stopped
 
 volumes:
-    pgdata:
-    rabbitmq_data:
+  pgdata:
+  rabbitmq_data:

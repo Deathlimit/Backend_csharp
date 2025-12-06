@@ -6,6 +6,7 @@ using Lab1Try2.Clients;
 using Lab1Try2.Config;
 using Lab1Try2.DAL.Interfaces;
 using Lab1Try2.DAL.Repositories;
+using Lab1Try2.Jobs;
 using Lab1Try2.Services;
 using Lab1Try2.Validators;
 using System.Text.Json;
@@ -46,6 +47,8 @@ builder.Services.AddScoped<RabbitMqService>();
 //   options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
 //});
 
+builder.Services.AddSwaggerGen();
+builder.Services.AddHostedService<OrderGenerator>();
 
 // собираем билдер в приложение
 var app = builder.Build();
