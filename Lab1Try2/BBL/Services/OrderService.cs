@@ -3,7 +3,8 @@ using Lab1Try2.DAL.Interfaces;
 using Lab1Try2.DAL.Models;
 using Microsoft.Extensions.Options;
 using Lab1Try2.Config;
-using Lab1Try2.Services; 
+using Lab1Try2.Services;
+using Microsoft.Extensions.Logging;
 
 namespace Lab1Try2.BBL.Services
 {
@@ -14,19 +15,22 @@ namespace Lab1Try2.BBL.Services
         private readonly IOrderItemRepository _orderItemRepository;
         private readonly RabbitMqService _rabbitMqService;
         private readonly RabbitMqSettings _rabbitMqSettings;
+        private readonly ILogger<OrderService> _logger;
 
         public OrderService(
             UnitOfWork unitOfWork,
             IOrderRepository orderRepository,
             IOrderItemRepository orderItemRepository,
             RabbitMqService rabbitMqService, 
-            IOptions<RabbitMqSettings> rabbitMqSettings) 
+            IOptions<RabbitMqSettings> rabbitMqSettings,
+            ILogger<OrderService> logger) 
         {
             _unitOfWork = unitOfWork;
             _orderRepository = orderRepository;
             _orderItemRepository = orderItemRepository;
             _rabbitMqService = rabbitMqService;
             _rabbitMqSettings = rabbitMqSettings.Value;
+            _logger = logger;
         }
 
         /// <summary>
@@ -34,6 +38,7 @@ namespace Lab1Try2.BBL.Services
         /// </summary>
         public async Task<OrderUnit[]> BatchInsert(OrderUnit[] orderUnits, CancellationToken token)
         {
+            _logger.LogInformation("BatchInsert called with {OrderUnitsCount} order units.", orderUnits.Length);
             var now = DateTimeOffset.UtcNow;
             List<OrderUnit> resultOrders;
 
@@ -156,8 +161,15 @@ namespace Lab1Try2.BBL.Services
                     }).ToArray()
                 }).ToArray();
 
+                _logger.LogInformation("Preparing to publish {MessagesCount} messages to RabbitMQ.", messages.Length);
+                foreach (var message in messages)
+                {
+                    _logger.LogInformation("Message OrderId: {OrderId}, OrderItems count: {OrderItemsCount}", message.Id, message.OrderItems.Length);
+                }
+
                 // 6. Отправляем сообщения в RabbitMQ
                 await _rabbitMqService.Publish(messages, _rabbitMqSettings.OrderCreatedQueue, token);
+                _logger.LogInformation("Successfully published messages to RabbitMQ.");
             }
             catch (Exception ex)
             {

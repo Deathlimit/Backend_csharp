@@ -1,48 +1,68 @@
 ﻿using Dapper;
 using Lab1Try2.DAL.Interfaces;
 using Lab1Try2.DAL.Models;
+using Microsoft.Extensions.Logging;
 
 namespace Lab1Try2.DAL.Repositories
 {
     public class AuditLogOrderRepository : IAuditLogOrderRepository
     {
         private readonly UnitOfWork _unitOfWork;
+        private readonly ILogger<AuditLogOrderRepository> _logger;
 
-        public AuditLogOrderRepository(UnitOfWork unitOfWork)
+        public AuditLogOrderRepository(UnitOfWork unitOfWork, ILogger<AuditLogOrderRepository> logger)
         {
             _unitOfWork = unitOfWork;
+            _logger = logger;
         }
 
         public async Task<V1AuditLogOrderDal[]> BulkInsert(V1AuditLogOrderDal[] auditLogs, CancellationToken token)
         {
-            var connection = await _unitOfWork.GetConnection(token);
+            _logger.LogInformation("BulkInsert called with {AuditLogsCount} audit logs.", auditLogs.Length);
 
-            const string sql = @"
-                INSERT INTO audit_log_order 
-                (order_id, order_item_id, customer_id, order_status, created_at, updated_at)
-                SELECT 
-                    order_id,
-                    order_item_id,
-                    customer_id,
-                    order_status,
-                    created_at,
-                    updated_at
-                FROM unnest(@AuditLogs)
-                RETURNING 
-                    id,
-                    order_id,
-                    order_item_id,
-                    customer_id,
-                    order_status,
-                    created_at,
-                    updated_at;
-            ";
+            if (auditLogs.Length == 0)
+            {
+                _logger.LogWarning("BulkInsert called with empty auditLogs array. Skipping insertion.");
+                return Array.Empty<V1AuditLogOrderDal>();
+            }
 
-            // Используем bulk вставку через unnest для массива записей
-            var results = await connection.QueryAsync<V1AuditLogOrderDal>(
-                new CommandDefinition(sql, new { AuditLogs = auditLogs }, cancellationToken: token));
+            try
+            {
+                var connection = await _unitOfWork.GetConnection(token);
 
-            return results.ToArray();
+                const string sql = @"
+                    INSERT INTO audit_log_order 
+                    (order_id, order_item_id, customer_id, order_status, created_at, updated_at)
+                    SELECT 
+                        order_id,
+                        order_item_id,
+                        customer_id,
+                        order_status,
+                        created_at,
+                        updated_at
+                    FROM unnest(@AuditLogs)
+                    RETURNING 
+                        id,
+                        order_id,
+                        order_item_id,
+                        customer_id,
+                        order_status,
+                        created_at,
+                        updated_at;
+                ";
+
+                // Используем bulk вставку через unnest для массива записей
+                var results = await connection.QueryAsync<V1AuditLogOrderDal>(
+                    new CommandDefinition(sql, new { AuditLogs = auditLogs }, cancellationToken: token));
+
+                _logger.LogInformation("Successfully inserted {InsertedCount} audit logs.", results.Count());
+                return results.ToArray();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during bulk insert of audit logs.");
+                throw; 
+            }
         }
 
         public async Task<V1AuditLogOrderDal[]> Query(QueryAuditLogOrderDalModel model, CancellationToken token)

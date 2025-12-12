@@ -1,4 +1,4 @@
-﻿services:
+services:
   postgres:
     image: postgres
     container_name: postgres
@@ -6,8 +6,8 @@
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=123
       - POSTGRES_DB=postgres
-      - POSTGRES_HOST_AUTH_METHOD=md5
-      - POSTGRES_INITDB_ARGS=--auth=md5
+      - POSTGRES_HOST_AUTH_METHOD=scram-sha-256
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
     volumes:
       - pgdata:/var/lib/postgresql/data/
       - ./postgresql.conf:/etc/postgresql/postgresql.conf
@@ -32,6 +32,7 @@
       - POOL_MODE=transaction
       - MAX_CLIENT_CONN=10000
       - DEFAULT_POOL_SIZE=16
+      - AUTH_TYPE=scram-sha-256
     ports:
       - "15432:5432"
     depends_on:
@@ -75,7 +76,7 @@
       - RabbitMqSettings__Password=guest
       - RabbitMqSettings__OrderCreatedQueue=order.created.queue
     ports:
-      - "8080:8080"  # FIXED: Map to port 8080 inside container
+      - "8080:8080"
     depends_on:
       pgbouncer:
         condition: service_started
@@ -92,19 +93,21 @@
     build:
       context: .
       dockerfile: Consumer/Dockerfile
-    container_name: consumer
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      # FIXED: Use RabbitMqSettings instead of RabbitMQ
       - RabbitMqSettings__HostName=rabbitmq
       - RabbitMqSettings__Port=5672
       - RabbitMqSettings__OrderCreatedQueue=order.created.queue
+    restart: unless-stopped
+    deploy:
+      replicas: 3
     depends_on:
       rabbitmq:
         condition: service_healthy
       lab1try2-service:
         condition: service_started
-    restart: unless-stopped
+      pgbouncer:
+        condition: service_started
 
 volumes:
   pgdata:

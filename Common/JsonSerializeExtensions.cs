@@ -14,10 +14,11 @@ namespace Common
         private static readonly JsonSerializerSettings Formatter = new()
         {
             Formatting = Formatting.Indented,
-            ContractResolver = new DefaultContractResolver
-            {
-                NamingStrategy = new SnakeCaseNamingStrategy(),
-            },
+            // Удалена NamingStrategy для использования PascalCase (C# default) при десериализации.
+            // ContractResolver = new DefaultContractResolver
+            // {
+            //     NamingStrategy = new SnakeCaseNamingStrategy(),
+            // },
             NullValueHandling = NullValueHandling.Ignore,
             Converters = new List<JsonConverter>
         {

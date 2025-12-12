@@ -1,4 +1,4 @@
-// создается билдер веб приложения
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 using Dapper;
 using FluentValidation;
 using Lab1Try2.BBL.Services;
@@ -10,6 +10,8 @@ using Lab1Try2.Jobs;
 using Lab1Try2.Services;
 using Lab1Try2.Validators;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
+using HealthChecks.NpgSql;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,9 +31,12 @@ builder.Services.AddScoped<IAuditLogOrderRepository, AuditLogOrderRepository>();
 builder.Services.AddScoped<AuditLogOrderService>();
 builder.Services.AddScoped<V1AuditLogOrderRequestValidator>();
 
-// зависимость, которая автоматически подхватывает все контроллеры в проекте
-builder.Services.AddControllers();
-// добавляем swagger
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+builder.Services.AddControllers().AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.PropertyNamingPolicy = null;
+});
+//  swagger
 builder.Services.AddSwaggerGen();
 
 builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection(nameof(RabbitMqSettings)));
@@ -48,21 +53,27 @@ builder.Services.AddScoped<RabbitMqService>();
 //});
 
 builder.Services.AddSwaggerGen();
+builder.Services.AddHealthChecks()
+    .AddNpgSql(builder.Configuration.GetSection("DbSettings")["ConnectionString"],
+        name: "PostgreSQL Health Check",
+        tags: new[] { "db", "postgresql" },
+        healthQuery: "SELECT COUNT(*) FROM audit_log_order;");
 builder.Services.AddHostedService<OrderGenerator>();
 
-// собираем билдер в приложение
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 var app = builder.Build();
 
-// добавляем 2 миддлвари для обработки запросов в сваггер
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ 2 пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 app.UseSwagger();
 app.UseSwaggerUI();
 
-// добавляем миддлварю для роутинга в нужный контроллер
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 app.MapControllers();
+app.MapHealthChecks("/health");
 
-// вместо *** должен быть путь к проекту Migrations
-// по сути в этот момент будет происходить накатка миграций на базу
+//  ***     Migrations
+//          
 Migrations.Program.Main([]);
 
-// запускам приложение
+//  
 app.Run();
