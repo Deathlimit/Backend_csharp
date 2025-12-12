@@ -8,7 +8,7 @@ COPY ["Models/Models.csproj", "Models/"]
 WORKDIR "/src/Migrations"
 RUN dotnet restore "Migrations.csproj"
 
-COPY . .
+COPY Migrations/. .
 
 WORKDIR "/src/Migrations"
 RUN dotnet build "Migrations.csproj" -c Release --no-restore
@@ -17,11 +17,11 @@ RUN dotnet publish "Migrations.csproj" -c Release -o /app/publish
 FROM mcr.microsoft.com/dotnet/runtime:9.0
 WORKDIR /app
 
-# Установите переменные окружения по умолчанию
+# пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ENV ASPNETCORE_ENVIRONMENT=Production
 ENV DOTNET_ENVIRONMENT=Production
 
 COPY --from=build /app/publish .
 
-# Если нужно передавать аргументы
+# пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ENTRYPOINT ["dotnet", "Migrations.dll"]

@@ -4,6 +4,7 @@ using Lab1Try2.BBL.Services;
 using Microsoft.AspNetCore.Mvc;
 using Models.Dto.V1.Requests;
 using Models.Dto.V1.Responses;
+using Models.Dto.V1;
 
 namespace Lab1Try2.Controllers.V1
 {
@@ -68,6 +69,13 @@ namespace Lab1Try2.Controllers.V1
             {
                 Orders = Map(res)
             });
+        }
+
+        [HttpPost("update-status")]
+        public async Task<ActionResult<V1UpdateOrderStatusResponse>> V1UpdateOrdersStatus([FromBody] V1UpdateOrdersStatusRequest request, CancellationToken token)
+        {
+            await orderService.UpdateOrdersStatus(request.OrderIds, request.NewStatus, token);
+            return Ok(new V1UpdateOrderStatusResponse());
         }
 
         private Models.Dto.Common.OrderUnit[] Map(OrderUnit[] orders)

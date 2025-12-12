@@ -1,20 +1,28 @@
 using AutoFixture;
 using Lab1Try2.BBL.Models;
 using Lab1Try2.BBL.Services;
+using Microsoft.Extensions.Hosting;
+using System;
+using Microsoft.Extensions.Logging;
 
 namespace Lab1Try2.Jobs
 {
-    public class OrderGenerator(IServiceProvider serviceProvider) : BackgroundService
+    public class OrderGenerator(IServiceProvider serviceProvider, ILogger<OrderGenerator> logger) : BackgroundService
     {
+        private readonly Random _random = new Random();
+
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             var fixture = new Fixture();
-            using var scope = serviceProvider.CreateScope();
-            var orderService = scope.ServiceProvider.GetRequiredService<OrderService>();
-
+            
             while (!stoppingToken.IsCancellationRequested)
             {
-                var orders = Enumerable.Range(1, 50)
+                try
+                {
+                    using var scope = serviceProvider.CreateScope();
+                    var orderService = scope.ServiceProvider.GetRequiredService<OrderService>();
+
+                    var ordersToCreate = Enumerable.Range(1, 50)
                     .Select(_ =>
                     {
                         var orderItem = fixture.Build<OrderItemUnit>()
@@ -35,10 +43,37 @@ namespace Lab1Try2.Jobs
                     })
                     .ToArray();
 
-                await orderService.BatchInsert(orders, stoppingToken);
+                    await orderService.BatchInsert(ordersToCreate, stoppingToken);
 
-                await Task.Delay(250, stoppingToken);
+                    // Randomly update status for some orders
+                    var ordersToUpdate = ordersToCreate.Where(_ => _random.Next(0, 100) < 20).ToArray(); // Update ~20% of orders
+
+                    if (ordersToUpdate.Any())
+                    {
+                        var possibleStatuses = new[] { "created", "processing", "completed", "cancelled" };
+                        foreach (var order in ordersToUpdate)
+                        {
+                            try
+                            {
+                                var newStatus = possibleStatuses[_random.Next(possibleStatuses.Length)];
+                                await orderService.UpdateOrdersStatus(new[] { order.Id }, newStatus, stoppingToken);
+                            }
+                            catch (Exception ex)
+                            {
+                                logger.LogError(ex, $"Failed to update status for order {order.Id}: {ex.Message}");
+                            }
+                        }
+                    }
+
+                    await Task.Delay(250, stoppingToken);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "OrderGenerator encountered an unhandled exception and might stop.");
+                    await Task.Delay(1000, stoppingToken);
+                }
             }
+            logger.LogInformation("OrderGenerator background service is stopping.");
         }
     }
 }

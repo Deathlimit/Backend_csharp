@@ -1,24 +1,25 @@
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
-# Копируем csproj файлы
+# пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ csproj пїЅпїЅпїЅпїЅпїЅ
 COPY ["Lab1Try2/Lab1Try2.csproj", "Lab1Try2/"]
 COPY ["Common/Common.csproj", "Common/"]
 COPY ["Models/Models.csproj", "Models/"]
+#COPY ["Lab1Try2/DAL/DAL.csproj", "Lab1Try2/DAL/"]
 COPY ["Migrations/Migrations.csproj", "Migrations/"]
 
-# Восстанавливаем зависимости
+# пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 RUN dotnet restore "Lab1Try2/Lab1Try2.csproj"
 
-# Копируем ВСЕ исходники
+# пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 COPY . .
 
-# Публикуем (хотя это библиотека, можно просто собрать)
+# пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
 WORKDIR "/src/Lab1Try2"
 RUN dotnet publish "Lab1Try2.csproj" -c Release -o /app/publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:9.0
 WORKDIR /app
 COPY --from=build /app/publish .
-# Lab1Try2 - это библиотека, но может иметь точку входа для тестирования
+# Lab1Try2 - пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ENTRYPOINT ["dotnet", "Lab1Try2.dll"]

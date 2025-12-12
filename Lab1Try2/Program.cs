@@ -12,10 +12,16 @@ using Lab1Try2.Validators;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using HealthChecks.NpgSql;
+using Npgsql;
+using Lab1Try2.DAL.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
 DefaultTypeMap.MatchNamesWithUnderscores = true;
+
+NpgsqlConnection.GlobalTypeMapper.MapComposite<Lab1Try2.DAL.Models.V1OrderDal>("v1_order_dal");
+NpgsqlConnection.GlobalTypeMapper.MapComposite<Lab1Try2.DAL.Models.V1OrderItemDal>("v1_order_item_dal");
+NpgsqlConnection.GlobalTypeMapper.MapComposite<Lab1Try2.DAL.Models.V1AuditLogOrderDal>("v1_audit_log_order_dal");
 builder.Services.AddScoped<UnitOfWork>();
 
 builder.Services.Configure<DbSettings>(builder.Configuration.GetSection(nameof(DbSettings)));
@@ -37,7 +43,6 @@ builder.Services.AddControllers().AddJsonOptions(options =>
     options.JsonSerializerOptions.PropertyNamingPolicy = null;
 });
 //  swagger
-builder.Services.AddSwaggerGen();
 
 builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection(nameof(RabbitMqSettings)));
 
@@ -60,7 +65,12 @@ builder.Services.AddHealthChecks()
         healthQuery: "SELECT COUNT(*) FROM audit_log_order;");
 builder.Services.AddHostedService<OrderGenerator>();
 
-// �������� ������ � ����������
+builder.Services.Configure<HostOptions>(options =>
+{
+    options.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore;
+});
+
+//   
 var app = builder.Build();
 
 // ��������� 2 ��������� ��� ��������� �������� � �������
@@ -73,7 +83,7 @@ app.MapHealthChecks("/health");
 
 //  ***     Migrations
 //          
-Migrations.Program.Main([]);
+// Migrations.Program.Main([]);
 
 //  
 app.Run();
