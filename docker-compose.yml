@@ -69,11 +69,11 @@
       # Миграции — напрямую к postgres (без pgbouncer)
       - DbSettings__MigrationConnectionString=Host=postgres;Port=5432;Database=postgres;Username=postgres;Password=123
       - MIGRATION_CONNECTION=Host=postgres;Port=5432;Database=postgres;Username=postgres;Password=123
-      - RabbitMQ__HostName=rabbitmq
-      - RabbitMQ__Port=5672
-      - RabbitMQ__UserName=guest
-      - RabbitMQ__Password=guest
-      - RabbitMQ__OrderCreatedQueue=order.created.queue
+      - RabbitMqSettings__HostName=rabbitmq
+      - RabbitMqSettings__Port=5672
+      - RabbitMqSettings__UserName=guest
+      - RabbitMqSettings__Password=guest
+      - RabbitMqSettings__OrderCreatedQueue=order.created.queue
     ports:
       - "8080:8080"  # FIXED: Map to port 8080 inside container
     depends_on:
@@ -94,12 +94,11 @@
       dockerfile: Consumer/Dockerfile
     container_name: consumer
     environment:
-      - ASPNETCORE_ENVIRONMENT=Production
-      - RabbitMQ__HostName=rabbitmq
-      - RabbitMQ__Port=5672
-      - RabbitMQ__UserName=guest
-      - RabbitMQ__Password=guest
-      - RabbitMQ__OrderCreatedQueue=order.created.queue
+      - ASPNETCORE_ENVIRONMENT=Development
+      # FIXED: Use RabbitMqSettings instead of RabbitMQ
+      - RabbitMqSettings__HostName=rabbitmq
+      - RabbitMqSettings__Port=5672
+      - RabbitMqSettings__OrderCreatedQueue=order.created.queue
     depends_on:
       rabbitmq:
         condition: service_healthy

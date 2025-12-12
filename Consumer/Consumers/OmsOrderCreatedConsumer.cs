@@ -40,6 +40,7 @@ namespace Consumer.Consumers
 
         public async Task StartAsync(CancellationToken cancellationToken)
         {
+
             _connection = await _factory.CreateConnectionAsync(cancellationToken);
             _channel = await _connection.CreateChannelAsync(cancellationToken: cancellationToken);
             await _channel.QueueDeclareAsync(

@@ -31,8 +31,8 @@ namespace Lab1Try2.Services
 
             foreach (var message in enumerable)
             {
-                //var messageStr = JsonSerializer.Serialize(message, jsonOptions);
-                var messageStr = message.ToJson();
+                var messageStr = JsonSerializer.Serialize(message, jsonOptions);
+                //var messageStr = message.ToJson();
                 var body = Encoding.UTF8.GetBytes(messageStr);
                 await channel.BasicPublishAsync(
                     exchange: string.Empty,
